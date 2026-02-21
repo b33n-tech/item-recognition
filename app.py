@@ -1,103 +1,78 @@
 import streamlit as st
 import cv2
-import mediapipe as mp
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+import numpy as np
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 import av
 
-st.set_page_config(page_title="Object Recognition", layout="centered")
+st.set_page_config(page_title="Eye Detector", layout="centered")
+st.title("🎯 Eye Detector")
+st.write("Bouge un objet dans la cible pour perdre.")
 
-st.title("👁 Reconnaissance d'objet")
+TARGET_RADIUS = 70
+MOTION_THRESHOLD = 800
 
-st.write("Détection : Visage / Main / Inconnu")
-
-mp_face = mp.solutions.face_detection
-mp_hands = mp.solutions.hands
-mp_draw = mp.solutions.drawing_utils
-
-
-class VideoProcessor(VideoProcessorBase):
-
+class VideoProcessor(VideoTransformerBase):
     def __init__(self):
-        self.face_detector = mp_face.FaceDetection(
-            model_selection=0,
-            min_detection_confidence=0.6
+        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=100,
+            varThreshold=25
         )
 
-        self.hand_detector = mp_hands.Hands(
-            max_num_hands=2,
-            min_detection_confidence=0.6,
-            min_tracking_confidence=0.6
-        )
-
-    def recv(self, frame):
+    def transform(self, frame):  # 'transform' au lieu de 'recv'
         img = frame.to_ndarray(format="bgr24")
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        h, w, _ = img.shape
+        center = (w // 2, h // 2)
 
-        detected_something = False
+        target_mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.circle(target_mask, center, TARGET_RADIUS, 255, -1)
 
-        # -------------------------
-        # VISAGES
-        # -------------------------
-        face_results = self.face_detector.process(rgb)
+        fg_mask = self.bg_subtractor.apply(img)
+        _, thresh = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
 
-        if face_results.detections:
-            detected_something = True
-            for detection in face_results.detections:
-                mp_draw.draw_detection(img, detection)
+        target_motion = cv2.bitwise_and(thresh, thresh, mask=target_mask)
+        motion_pixels = np.sum(target_motion == 255)
 
+        cv2.circle(img, center, TARGET_RADIUS, (0, 0, 255), 2)
+
+        if motion_pixels > MOTION_THRESHOLD:
             cv2.putText(
                 img,
-                "VISAGE",
-                (20, 50),
+                "PERDU",
+                (50, 120),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2
-            )
-
-        # -------------------------
-        # MAINS
-        # -------------------------
-        hand_results = self.hand_detector.process(rgb)
-
-        if hand_results.multi_hand_landmarks:
-            detected_something = True
-            for hand_landmarks in hand_results.multi_hand_landmarks:
-                mp_draw.draw_landmarks(
-                    img,
-                    hand_landmarks,
-                    mp_hands.HAND_CONNECTIONS
-                )
-
-            cv2.putText(
-                img,
-                "MAIN",
-                (20, 90),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 0, 0),
-                2
-            )
-
-        # -------------------------
-        # OBJET INCONNU
-        # -------------------------
-        if not detected_something:
-            cv2.putText(
-                img,
-                "OBJET NON IDENTIFIE",
-                (20, 50),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
+                2,
                 (0, 0, 255),
-                2
+                4
             )
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-
 webrtc_streamer(
-    key="object-recognition",
-    video_processor_factory=VideoProcessor,
-    media_stream_constraints={"video": True, "audio": False},
+    key="eye-detector",
+    video_transformer_factory=VideoProcessor,  # paramètre mis à jour
+    media_stream_constraints={
+        "video": True,
+        "audio": False
+    },
+    async_transform=True  # améliore les performances
 )
+```
+
+---
+
+**requirements.txt corrigé :**
+```
+streamlit>=1.28.0
+streamlit-webrtc>=0.47.0
+numpy
+av
+opencv-python-headless
+```
+
+> `mediapipe` supprimé car non utilisé. Pas de version fixe pour opencv pour éviter les conflits.
+
+---
+
+**runtime.txt corrigé :**
+```
+python-3.10.13
