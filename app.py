@@ -18,7 +18,7 @@ class VideoProcessor(VideoTransformerBase):
             varThreshold=25
         )
 
-    def transform(self, frame):  # 'transform' au lieu de 'recv'
+    def transform(self, frame):
         img = frame.to_ndarray(format="bgr24")
         h, w, _ = img.shape
         center = (w // 2, h // 2)
@@ -35,24 +35,14 @@ class VideoProcessor(VideoTransformerBase):
         cv2.circle(img, center, TARGET_RADIUS, (0, 0, 255), 2)
 
         if motion_pixels > MOTION_THRESHOLD:
-            cv2.putText(
-                img,
-                "PERDU",
-                (50, 120),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                2,
-                (0, 0, 255),
-                4
-            )
+            cv2.putText(img, "PERDU", (50, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 4)
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
 webrtc_streamer(
     key="eye-detector",
-    video_transformer_factory=VideoProcessor,  # paramètre mis à jour
-    media_stream_constraints={
-        "video": True,
-        "audio": False
-    },
-    async_transform=True  # améliore les performances
+    video_transformer_factory=VideoProcessor,
+    media_stream_constraints={"video": True, "audio": False},
+    async_transform=True
 )
