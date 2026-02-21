@@ -56,7 +56,6 @@ webrtc_streamer(
     },
     async_transform=True  # améliore les performances
 )
-```
 
 ---
 
