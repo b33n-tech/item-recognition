@@ -58,20 +58,3 @@ webrtc_streamer(
 )
 
 ---
-
-**requirements.txt corrigé :**
-```
-streamlit>=1.28.0
-streamlit-webrtc>=0.47.0
-numpy
-av
-opencv-python-headless
-```
-
-> `mediapipe` supprimé car non utilisé. Pas de version fixe pour opencv pour éviter les conflits.
-
----
-
-**runtime.txt corrigé :**
-```
-python-3.10.13
